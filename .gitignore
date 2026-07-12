@@ -1,0 +1,14 @@
+.env
+.venv
+__pycache__/
+.pytest_cache/
+airflow_home/
+*.pyc
+.DS_Store
+
+/Users/anurag./[3] DE_Project_3/README_CODEBASE.md
+/Users/anurag./[3] DE_Project_3/README_RUN.md
+README_CODEBASE.md
+README_RUN.md
+
+.env.example
