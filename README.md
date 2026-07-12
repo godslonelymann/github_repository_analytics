@@ -1,169 +1,134 @@
 # GitHub Repository Analytics ETL Pipeline
 
-A simple Python ETL pipeline that fetches GitHub repository data from the GitHub REST API, transforms it into a small analytics shape, loads it into PostgreSQL, and displays basic trends in Streamlit.
+A Python data engineering project that extracts public GitHub repository metadata, transforms it into an analytics-friendly shape, stores daily metric snapshots in PostgreSQL, and visualizes the results in Streamlit.
 
-The pipeline can run manually with `python run_pipeline.py` or on a daily Airflow schedule.
+The project is designed to be easy to run locally, in Docker, or on a daily Apache Airflow schedule.
 
-## Extra Documentation
+## What It Does
 
-- [README_CODEBASE.md](README_CODEBASE.md): explains every important file in simple language, with diagrams and flowcharts.
-- [README_RUN.md](README_RUN.md): explains how to run the project step by step in simple language.
+- Tracks a curated list of 100 popular open source repositories.
+- Pulls repository metadata from the GitHub REST API.
+- Captures daily snapshots for stars, forks, watchers, and open issues.
+- Stores stable repository attributes and historical metrics in PostgreSQL.
+- Provides a Streamlit dashboard for repository totals, top repositories, language distribution, and star history.
+- Includes pytest coverage for transformation, loading, and orchestration logic.
 
 ## Architecture
 
 ```text
 GitHub REST API
-        |
-        v
+      |
+      v
 src/extract.py
-        |
-        v
+      |
+      v
 src/transform.py
-        |
-        v
+      |
+      v
 src/load.py
-        |
-        v
+      |
+      v
 PostgreSQL
-        |
-        v
+      |
+      v
 dashboard/app.py
 ```
 
-## Technologies Used
+Airflow schedules the same pipeline entry point used for manual runs:
+
+```text
+dags/github_repo_analytics_dag.py -> python run_pipeline.py
+```
+
+## Tech Stack
 
 - Python 3.10+
 - PostgreSQL
 - SQLAlchemy
 - Requests
-- Psycopg2
 - Streamlit
 - Pytest
 - Apache Airflow
+- Docker and Docker Compose
 
-## Folder Structure
+## Repository Structure
 
 ```text
-github-repository-analytics/
-├── src/
-│   ├── extract.py
-│   ├── transform.py
-│   ├── load.py
-│   ├── run_pipeline.py
-│   ├── database.py
-│   └── config.py
-├── dashboard/
-│   └── app.py
+.
 ├── dags/
 │   └── github_repo_analytics_dag.py
-├── Dockerfile
-├── docker-compose.yml
-├── .dockerignore
+├── dashboard/
+│   └── app.py
 ├── sql/
 │   └── schema.sql
+├── src/
+│   ├── config.py
+│   ├── database.py
+│   ├── extract.py
+│   ├── load.py
+│   ├── run_pipeline.py
+│   └── transform.py
 ├── tests/
-├── requirements.txt
+│   ├── conftest.py
+│   ├── test_load.py
+│   ├── test_run_pipeline.py
+│   └── test_transform.py
+├── Dockerfile
+├── docker-compose.yml
 ├── requirements-airflow.txt
-├── README.md
-├── README_CODEBASE.md
-├── README_RUN.md
-├── run_pipeline.py
-└── .env.example
+├── requirements.txt
+└── run_pipeline.py
 ```
 
-`run_pipeline.py` at the project root is a small convenience entry point so the pipeline can be started with `python run_pipeline.py`.
+The root `run_pipeline.py` is a convenience wrapper that loads and runs `src/run_pipeline.py`.
 
-## PostgreSQL Setup
+## Data Model
 
-Create the local database:
+The PostgreSQL schema contains two tables:
 
-```bash
-createdb github_analytics
-```
+| Table | Purpose |
+| --- | --- |
+| `repositories` | Stores stable repository metadata such as repository ID, owner, name, description, language, creation time, and last update time. |
+| `repository_metrics` | Stores a new metric snapshot on every pipeline run, including stars, forks, watchers, open issues, and snapshot date. |
 
-Create the tables:
+`repositories.repo_id` is the primary key. Repository rows are inserted once with `ON CONFLICT DO NOTHING`; metric rows are appended each time the ETL runs.
 
-```bash
-psql -d github_analytics -f sql/schema.sql
-```
+## Configuration
 
-The schema creates two tables:
+The project reads environment variables directly and also loads a local `.env` file from the project root when present.
 
-- `repositories`: static repository details, inserted only once per repository. Columns: `repo_id`, `owner`, `repository_name`, `description`, `language`, `created_at`, `updated_at`.
-- `repository_metrics`: daily metric snapshots, inserted on every pipeline run.
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `GITHUB_TOKEN` | No | Empty | Optional GitHub token. Recommended to avoid low unauthenticated API rate limits. |
+| `DATABASE_URL` | No | Built from PostgreSQL variables | Full SQLAlchemy PostgreSQL connection string. Takes precedence over individual PostgreSQL settings. |
+| `POSTGRES_HOST` | No | Empty | PostgreSQL host. If omitted, the app uses a local socket URL. |
+| `POSTGRES_PORT` | No | `5432` | PostgreSQL port. |
+| `POSTGRES_DB` | No | `github_analytics` | PostgreSQL database name. |
+| `POSTGRES_USER` | No | Empty | PostgreSQL username. |
+| `POSTGRES_PASSWORD` | No | Empty | PostgreSQL password. |
 
-## GitHub Token
-
-A GitHub Personal Access Token is optional for public repositories, but recommended to avoid low API rate limits.
-
-Create a token in GitHub, then create a `.env` file in the project folder:
+Example `.env`:
 
 ```text
-GITHUB_TOKEN=your_token_here
+GITHUB_TOKEN=your_github_token
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=github_analytics
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
 ```
 
-No special repository permissions are required for public repository metadata.
-
-The project reads `.env` automatically. Do not commit `.env` to GitHub.
-
-## Environment Variables
-
-By default, the app connects to a local PostgreSQL database named `github_analytics` using the current OS user over the local PostgreSQL socket:
+You can also use one complete connection string:
 
 ```text
-postgresql+psycopg2:///github_analytics
+DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/github_analytics
 ```
 
-Set environment variables only if your PostgreSQL installation needs a host, username, or password:
+Do not commit `.env` files or real secrets.
 
-```bash
-export POSTGRES_HOST=localhost
-export POSTGRES_PORT=5432
-export POSTGRES_DB=github_analytics
-export POSTGRES_USER=your_postgres_user
-export POSTGRES_PASSWORD=your_postgres_password
-```
+## Quick Start with Docker
 
-You can also provide one full SQLAlchemy connection string:
-
-```bash
-export DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/github_analytics
-```
-
-## Install Dependencies
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-If your system uses `python3` instead of `python`, use `python3` for the commands below.
-
-## Run the Pipeline
-
-```bash
-python run_pipeline.py
-```
-
-The pipeline fetches the 100 repositories listed in `src/config.py`, transforms the API responses, inserts new repositories if needed, and appends metric snapshots.
-
-## Run with Docker
-
-The Docker setup uses four simple services:
-
-```text
-postgres   -> PostgreSQL database
-etl        -> manual ETL runner
-dashboard  -> Streamlit dashboard
-airflow    -> Airflow scheduler and web UI
-```
-
-The Docker PostgreSQL credentials are:
-
-```text
-database: github_analytics
-username: postgres
-password: postgres
-```
+Docker Compose runs PostgreSQL, the ETL job, Streamlit, and Airflow with consistent container settings.
 
 Build the image:
 
@@ -177,7 +142,7 @@ Start PostgreSQL:
 docker compose up -d postgres
 ```
 
-Run the ETL manually:
+Run the ETL pipeline:
 
 ```bash
 docker compose run --rm etl
@@ -189,58 +154,77 @@ Start the dashboard:
 docker compose up dashboard
 ```
 
-Open:
+Open the dashboard at:
 
 ```text
 http://localhost:8501
 ```
 
-Start Airflow:
-
-```bash
-docker compose up airflow
-```
-
-Open:
-
-```text
-http://localhost:8080
-```
-
-Login:
-
-```text
-username: admin
-password: admin
-```
-
-Enable the `github_repo_analytics_etl` DAG in the Airflow UI.
-
-To stop all Docker services:
+Stop services:
 
 ```bash
 docker compose down
 ```
 
-## Run with Airflow
+Remove services and delete the PostgreSQL volume:
 
-The Airflow integration is intentionally simple. The DAG runs the existing pipeline script once per day:
+```bash
+docker compose down -v
+```
 
-```text
-dags/github_repo_analytics_dag.py
-    |
-    v
+Use `-v` only when you intentionally want to delete the local Docker database.
+
+## Local Development Setup
+
+Create and activate a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Create the PostgreSQL database:
+
+```bash
+createdb github_analytics
+```
+
+Create the tables:
+
+```bash
+psql -d github_analytics -f sql/schema.sql
+```
+
+Run the pipeline:
+
+```bash
 python run_pipeline.py
 ```
 
-Install Airflow in the same environment where the project dependencies are available:
+Run the dashboard:
+
+```bash
+streamlit run dashboard/app.py
+```
+
+## Running with Airflow
+
+Airflow is optional for scheduled execution.
+
+Install the application and Airflow dependencies:
 
 ```bash
 python -m pip install -r requirements.txt
 python -m pip install -r requirements-airflow.txt
 ```
 
-Set Airflow home and point Airflow at this project's `dags/` folder:
+Set Airflow paths for this project:
 
 ```bash
 export AIRFLOW_HOME="$PWD/airflow_home"
@@ -253,26 +237,52 @@ Start Airflow:
 airflow standalone
 ```
 
-Airflow will print the admin username and password in the terminal. Open the Airflow UI:
+Open:
 
 ```text
 http://localhost:8080
 ```
 
-Enable the `github_repo_analytics_etl` DAG. It uses `start_date=datetime(2026, 7, 12)`, `schedule="@daily"`, and `catchup=False`, so it will not backfill old dates.
+Enable the `github_repo_analytics_etl` DAG. The DAG is configured with:
 
-## Verify PostgreSQL Data
+- `schedule="@daily"`
+- `catchup=False`
+- `start_date=datetime(2026, 7, 12)`
 
-```bash
-psql -d github_analytics
+The Docker Compose Airflow service creates an admin user automatically:
+
+```text
+Username: admin
+Password: admin
 ```
 
-Then run:
+## Testing
+
+Run the test suite:
+
+```bash
+pytest tests
+```
+
+Current tests cover:
+
+- Repository payload transformation.
+- Validation of missing required fields.
+- Loader execution against a fake SQLAlchemy engine.
+- End-to-end pipeline orchestration with mocked extract, transform, and load steps.
+
+## Useful SQL Checks
+
+After a successful ETL run:
 
 ```sql
 SELECT COUNT(*) FROM repositories;
 SELECT COUNT(*) FROM repository_metrics;
+```
 
+View the latest high-star repositories:
+
+```sql
 SELECT
     r.owner,
     r.repository_name,
@@ -287,25 +297,42 @@ ORDER BY m.snapshot_date DESC, m.stars DESC
 LIMIT 10;
 ```
 
-## Run the Dashboard
+## Operational Notes
+
+- The repository list is defined in `src/config.py`.
+- Public GitHub metadata can be fetched without a token, but authenticated requests are more reliable for repeated runs.
+- Docker initializes `sql/schema.sql` only when the PostgreSQL volume is first created.
+- Local runs default to `postgresql+psycopg2:///github_analytics` when `POSTGRES_HOST` and `DATABASE_URL` are not set.
+- The dashboard uses the latest metrics per repository for summary cards and top repository rankings.
+- Historical star trends are based on accumulated rows in `repository_metrics`.
+
+## Troubleshooting
+
+### GitHub API Rate Limits
+
+Set `GITHUB_TOKEN` in `.env` or in your shell environment.
+
+### Local PostgreSQL Connection Errors
+
+If your PostgreSQL server requires explicit credentials, set either `DATABASE_URL` or the individual `POSTGRES_*` variables.
+
+### Docker Port Conflicts
+
+The Compose file exposes:
+
+| Service | Port |
+| --- | --- |
+| PostgreSQL | `5432` |
+| Streamlit | `8501` |
+| Airflow | `8080` |
+
+Stop the conflicting process or update `docker-compose.yml` to use a different host port.
+
+### Schema Changes Not Appearing in Docker
+
+The schema file runs only during first-time PostgreSQL volume initialization. Recreate the database volume if you want Docker to apply schema changes from scratch:
 
 ```bash
-streamlit run dashboard/app.py
+docker compose down -v
+docker compose up -d postgres
 ```
-
-The dashboard shows:
-
-- Total repositories
-- Total stars
-- Total forks
-- Top repositories by stars
-- Repository language distribution
-- Star history over time
-
-## Run Tests
-
-```bash
-pytest tests
-```
-
-The tests cover repository transformation, database insertion calls, and a complete ETL orchestration using sample data.
