@@ -13,6 +13,26 @@ The project is designed to be easy to run locally, in Docker, or on a daily Apac
 - Provides a Streamlit dashboard for repository totals, top repositories, language distribution, and star history.
 - Includes pytest coverage for transformation, loading, and orchestration logic.
 
+## Dashboard Screenshots
+
+### Repository Summary and Top Repositories
+
+![Repository summary and top repositories](img-1.png)
+
+The dashboard summary cards show the total number of tracked repositories, total stars, and total forks loaded into PostgreSQL. The bar chart ranks the top repositories by their latest star count, making it easy to compare the highest-impact repositories in the dataset.
+
+### Repository Language Distribution
+
+![Repository language distribution](img-2.png)
+
+This chart groups repositories by their primary GitHub language. It helps show the technology mix across the tracked repositories, with Python, TypeScript, Go, JavaScript, Java, and other languages represented in the current dataset.
+
+### Star History Over Time
+
+![Star history over time](img-3.png)
+
+The star history chart uses the accumulated records in `repository_metrics` to show how total stars change across ETL snapshots. Each pipeline run adds a new snapshot, so this view becomes more useful as the scheduled Airflow job or manual ETL runs collect more history.
+
 ## Architecture
 
 ```text
@@ -75,6 +95,9 @@ dags/github_repo_analytics_dag.py -> python run_pipeline.py
 │   └── test_transform.py
 ├── Dockerfile
 ├── docker-compose.yml
+├── img-1.png
+├── img-2.png
+├── img-3.png
 ├── requirements-airflow.txt
 ├── requirements.txt
 └── run_pipeline.py
