@@ -17,19 +17,19 @@ The project is designed to be easy to run locally, in Docker, or on a daily Apac
 
 ### Repository Summary and Top Repositories
 
-![Repository summary and top repositories](img-1.png)
+![Repository summary and top repositories](dashboard/dashboard-ss/img-1.png)
 
 The dashboard summary cards show the total number of tracked repositories, total stars, and total forks loaded into PostgreSQL. The bar chart ranks the top repositories by their latest star count, making it easy to compare the highest-impact repositories in the dataset.
 
 ### Repository Language Distribution
 
-![Repository language distribution](img-2.png)
+![Repository language distribution](dashboard/dashboard-ss/img-2.png)
 
 This chart groups repositories by their primary GitHub language. It helps show the technology mix across the tracked repositories, with Python, TypeScript, Go, JavaScript, Java, and other languages represented in the current dataset.
 
 ### Star History Over Time
 
-![Star history over time](img-3.png)
+![Star history over time](dashboard/dashboard-ss/img-3.png)
 
 The star history chart uses the accumulated records in `repository_metrics` to show how total stars change across ETL snapshots. Each pipeline run adds a new snapshot, so this view becomes more useful as the scheduled Airflow job or manual ETL runs collect more history.
 
@@ -78,6 +78,10 @@ dags/github_repo_analytics_dag.py -> python run_pipeline.py
 ├── dags/
 │   └── github_repo_analytics_dag.py
 ├── dashboard/
+│   ├── dashboard-ss/
+│   │   ├── img-1.png
+│   │   ├── img-2.png
+│   │   └── img-3.png
 │   └── app.py
 ├── sql/
 │   └── schema.sql
@@ -95,9 +99,6 @@ dags/github_repo_analytics_dag.py -> python run_pipeline.py
 │   └── test_transform.py
 ├── Dockerfile
 ├── docker-compose.yml
-├── img-1.png
-├── img-2.png
-├── img-3.png
 ├── requirements-airflow.txt
 ├── requirements.txt
 └── run_pipeline.py
